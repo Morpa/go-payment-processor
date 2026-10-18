@@ -1,7 +1,7 @@
 # Single multi stage Dockerfile for every service. The build argument
 # SERVICE selects which binary to compile, so the four images share
 # layers and the build setup stays in one place.
-FROM golang:1.26-alpine AS build
+FROM golang:1.27-alpine AS build
 
 ARG SERVICE
 WORKDIR /src
