@@ -16,6 +16,10 @@ help: ## List available targets
 setup: ## Verify and install local tooling
 	./scripts/setup.sh
 
+.PHONY: hooks
+hooks: ## Install git hooks (pre-push runs build, vet and tests)
+	git config core.hooksPath githooks
+
 .PHONY: proto
 proto: ## Regenerate gRPC code from proto files
 	mkdir -p proto/gen/go

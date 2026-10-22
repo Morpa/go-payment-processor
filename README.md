@@ -60,6 +60,10 @@ make bench             # inference and batching benchmarks
 make load-test         # k6 latency thresholds (requires k6)
 ```
 
+`make setup` (ou `make hooks`) instala o hook `githooks/pre-push`, que roda
+`go build`, `go vet` e `go test` antes de cada push e bloqueia o envio se algo
+falhar. Para pular em um push pontual: `git push --no-verify`.
+
 ## Optional integrations
 
 Everything runs offline by default. Real integrations activate by

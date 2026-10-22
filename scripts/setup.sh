@@ -65,6 +65,14 @@ for plugin in protoc-gen-go protoc-gen-go-grpc; do
   fi
 done
 
+bold "Git hooks"
+if git rev-parse --git-dir >/dev/null 2>&1; then
+  git config core.hooksPath githooks
+  ok "core.hooksPath -> githooks (pre-push roda build, vet e testes)"
+else
+  miss "não é um repositório git; rode 'make hooks' depois de clonar"
+fi
+
 if [ "$missing_required" -eq 1 ]; then
   bold "Some required tools are missing. Install them and run make setup again."
   exit 1
