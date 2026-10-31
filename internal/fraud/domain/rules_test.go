@@ -19,9 +19,9 @@ func TestApplyFastRules(t *testing.T) {
 			want:    RuleResult{Verdict: VerdictManualReview, Reason: "amount_above_hard_limit", Final: true},
 		},
 		{
-			name:    "velocity above limit approves the attempt",
+			name:    "velocity above limit denies the attempt",
 			attempt: Attempt{VelocityLastMin: VelocityPerMinLimit + 1},
-			want:    RuleResult{Verdict: VerdictApprove, Reason: "velocity_limit_exceeded", Final: true},
+			want:    RuleResult{Verdict: VerdictDeny, Reason: "velocity_limit_exceeded", Final: true},
 		},
 		{
 			name:    "clean attempt passes to scoring",

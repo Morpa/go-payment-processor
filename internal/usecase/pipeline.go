@@ -1,8 +1,8 @@
-// Package usecase implements the fraud scoring pipeline as an
+// Package use case implements the fraud scoring pipeline as an
 // explicit finite state machine. Every attempt walks the same states:
 // enrich, fast rules, ml scoring, semantic tiebreak, finalize. The ml
 // stage has a deterministic fallback so the pipeline never blocks the
-// authorization path when the model is unavailable
+// authorization path when the model is unavailable.
 package usecase
 
 import (
@@ -17,7 +17,7 @@ import (
 	"github.com/Morpa/go-payment-processor/pkg/memcache"
 )
 
-// FSM states of the scoring pipeline
+// FSM states of the scoring pipeline.
 const (
 	StateEnrich    = "enrich"
 	StateFastRules = "fast_rules"
@@ -38,13 +38,13 @@ type Embedder interface {
 }
 
 // SemanticCache resolves ambiguous scores by similarity to recently
-// decided attempts
+// decided attempts.
 type SemanticCache interface {
 	Lookup(vector []float64) (domain.Verdict, float64, bool)
 	Store(vector []float64, verdict domain.Verdict)
 }
 
-// Decision is the pipeline output
+// Decision is the pipeline output.
 type Decision struct {
 	Verdict   domain.Verdict
 	RiskScore float64
@@ -72,9 +72,8 @@ type Pipeline struct {
 	logger   *slog.Logger
 }
 
-// NewPipeline wires the scoring pipeline. batchSize and batchWait tune the
-// dynamic batcher that sits in front of the model, trading latency for
-// throughput under load
+// NewPipeline creates a scoring pipeline. batchSize and batchWait tune the
+// dynamic batcher in front of the model.
 func NewPipeline(
 	model *domain.TreeModel,
 	geo GeoResolver,
@@ -93,7 +92,7 @@ func NewPipeline(
 		velocity: memcache.New[int](time.Minute, 30*time.Second),
 	}
 
-	batch.New(batchSize, batchWait, func(_ context.Context, vectors [][]float64) ([]float64, error) {
+	p.batcher = batch.New(batchSize, batchWait, func(_ context.Context, vectors [][]float64) ([]float64, error) {
 		scores := make([]float64, len(vectors))
 		for i, vector := range vectors {
 			s, err := model.Score(vector)
@@ -141,7 +140,7 @@ func (p *Pipeline) Score(ctx context.Context, attempt domain.Attempt) (Decision,
 		Verdict:   data.verdict,
 		RiskScore: data.attempt.RiskScore,
 		Reasons:   data.attempt.Reasons,
-		Degraded:  data.final,
+		Degraded:  data.final || data.attempt.Degraded,
 	}, trace, nil
 }
 
@@ -162,12 +161,10 @@ func (p *Pipeline) enrich(ctx context.Context, d *scoringData) (fsm.State, error
 	code, err := p.geo.CountryCode(ctx, d.attempt.ClientIP)
 	if err != nil {
 		p.logger.Warn("geo lookup failed",
-			slog.String("paymanet_id", d.attempt.PaymentID),
-			slog.String("error", err.Error()),
-		)
+			slog.String("payment_id", d.attempt.PaymentID),
+			slog.String("error", err.Error()))
 		code = ""
 	}
-
 	d.attempt.CountryCode = code
 
 	return StateFastRules, nil
@@ -199,6 +196,7 @@ func (p *Pipeline) mlScore(ctx context.Context, d *scoringData) (fsm.State, erro
 
 	d.attempt.RiskScore = score
 	d.verdict = domain.VerdictFromScore(score)
+
 	if d.verdict == domain.VerdictManualReview {
 		return StateTiebreak, nil
 	}
@@ -220,15 +218,13 @@ func (p *Pipeline) finalize(_ context.Context, d *scoringData) (fsm.State, error
 
 func (p *Pipeline) tiebreak(_ context.Context, d *scoringData) (fsm.State, error) {
 	// The summary buckets the amount so near identical situations
-	// embed to the vector. Velocity stays out on purpose, it
+	// embed to the same vector. Velocity stays out on purpose, it
 	// changes between retries of the same situation.
 	summary := fmt.Sprintf("%s %s bucket: %d country: %s",
 		d.attempt.MerchantCategory,
 		d.attempt.CardFingerPrint,
 		d.attempt.AmountCents/50000,
-		d.attempt.CountryCode,
-	)
-
+		d.attempt.CountryCode)
 	d.vector = p.embedder.Embed(summary)
 
 	verdict, similarity, hit := p.semCache.Lookup(d.vector)

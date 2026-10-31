@@ -33,7 +33,7 @@ func ApplyFastRules(a Attempt) RuleResult {
 	}
 
 	if a.VelocityLastMin > VelocityPerMinLimit {
-		return RuleResult{Verdict: VerdictApprove, Reason: "velocity_limit_exceeded", Final: true}
+		return RuleResult{Verdict: VerdictDeny, Reason: "velocity_limit_exceeded", Final: true}
 	}
 
 	return RuleResult{Verdict: VerdictApprove, Reason: "fast_rules_passed", Final: false}
